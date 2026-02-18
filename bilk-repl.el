@@ -186,42 +186,49 @@
   (compilation-minor-mode 1))
 
 ;; ---------------------------------------------------------------------------
-;;; Interactive commands — replace placeholders in bilk-mode.el
+;;; Interactive commands
 ;; ---------------------------------------------------------------------------
 
+;;;###autoload
 (defun bilk-eval-last-sexp ()
   "Evaluate the sexp before point in the Bilk REPL."
   (interactive)
   (bilk-repl--send-client-msg (cons 'eval (bilk-repl--last-sexp))))
 
+;;;###autoload
 (defun bilk-eval-defun ()
   "Evaluate the top-level form at point in the Bilk REPL."
   (interactive)
   (bilk-repl--send-client-msg (cons 'eval (bilk-repl--defun-at-point))))
 
+;;;###autoload
 (defun bilk-eval-region (start end)
   "Evaluate the region from START to END in the Bilk REPL."
   (interactive "r")
   (bilk-repl--send-client-msg
    (cons 'eval (buffer-substring-no-properties start end))))
 
+;;;###autoload
 (defun bilk-eval-buffer ()
   "Evaluate the entire buffer in the Bilk REPL."
   (interactive)
   (bilk-repl--send-client-msg
    (cons 'eval (buffer-substring-no-properties (point-min) (point-max)))))
 
+;;;###autoload
 (defun bilk-load-file (file)
   "Load FILE into the Bilk REPL."
   (interactive "fLoad file: ")
   (bilk-repl--send-client-msg
    (cons 'eval (format "(load \"%s\")" (expand-file-name file)))))
 
+;;;###autoload
 (defun bilk-switch-to-repl ()
   "Switch to the Bilk REPL buffer."
   (interactive)
   (pop-to-buffer (bilk-repl--ensure-buffer)))
 
+;;;###autoload
 (defun bilk-interrupt ()
   "Send interrupt to the Bilk REPL."
   (interactive)
@@ -280,28 +287,33 @@ Returns a string like \"(mylib utils)\" or nil."
 ;;; Comma-command wrappers
 ;; ---------------------------------------------------------------------------
 
+;;;###autoload
 (defun bilk-checkpoint (name)
   "Send a checkpoint command with NAME to the Bilk REPL."
   (interactive "sCheckpoint name: ")
   (bilk-repl--send-client-msg (cons 'eval (concat ",checkpoint " name))))
 
+;;;###autoload
 (defun bilk-revert (name)
   "Send a revert command with NAME to the Bilk REPL."
   (interactive "sRevert to checkpoint: ")
   (bilk-repl--send-client-msg (cons 'eval (concat ",revert " name))))
 
+;;;###autoload
 (defun bilk-reload (library)
   "Send a reload command for LIBRARY to the Bilk REPL.
 LIBRARY should be in parenthesized form, e.g. \"(scheme base)\"."
   (interactive "sReload library: ")
   (bilk-repl--send-client-msg (cons 'eval (concat ",reload " library))))
 
+;;;###autoload
 (defun bilk-exports (library)
   "Send an exports command for LIBRARY to the Bilk REPL.
 LIBRARY should be in parenthesized form, e.g. \"(scheme base)\"."
   (interactive "sShow exports for library: ")
   (bilk-repl--send-client-msg (cons 'eval (concat ",exports " library))))
 
+;;;###autoload
 (defun bilk-deps (library)
   "Send a deps command for LIBRARY to the Bilk REPL.
 LIBRARY should be in parenthesized form, e.g. \"(scheme base)\"."
@@ -312,6 +324,7 @@ LIBRARY should be in parenthesized form, e.g. \"(scheme base)\"."
 ;;; Connection management
 ;; ---------------------------------------------------------------------------
 
+;;;###autoload
 (defun bilk-repl-start ()
   "Start `bilk serve' and connect to it."
   (interactive)
@@ -365,6 +378,7 @@ LIBRARY should be in parenthesized form, e.g. \"(scheme base)\"."
     (force-mode-line-update t)
     (message "Bilk REPL: %s" (string-trim event))))
 
+;;;###autoload
 (defun bilk-repl-disconnect ()
   "Disconnect from the Bilk REPL."
   (interactive)

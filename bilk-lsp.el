@@ -10,16 +10,19 @@
 (require 'bilk-custom)
 (require 'bilk-mode)
 
+;;;###autoload
 (defun bilk-lsp--maybe-enable ()
   "Start eglot in the current buffer when `bilk-lsp-enabled' is non-nil."
   (when bilk-lsp-enabled
     (when (fboundp 'eglot-ensure)
       (eglot-ensure))))
 
+;;;###autoload
 (with-eval-after-load 'eglot
   (add-to-list 'eglot-server-programs
                '(bilk-mode . ("bilk" "lsp"))))
 
+;;;###autoload
 (add-hook 'bilk-mode-hook #'bilk-lsp--maybe-enable)
 
 (provide 'bilk-lsp)

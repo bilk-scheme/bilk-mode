@@ -27,6 +27,23 @@ Eglot ships with Emacs 29+ and is used for LSP — no extra package needed.
 
 ## Installation
 
+### MELPA
+
+bilk-mode is available from [MELPA](https://melpa.org/#/bilk-mode). After
+[enabling MELPA](https://melpa.org/#/getting-started):
+
+```elisp
+M-x package-install RET bilk-mode RET
+```
+
+Or with `use-package`:
+
+```elisp
+(use-package bilk-mode
+  :ensure t
+  :mode ("\\.scm\\'" "\\.sld\\'"))
+```
+
 ### Manual
 
 Clone this repository and add it to your load path:
@@ -34,26 +51,14 @@ Clone this repository and add it to your load path:
 ```elisp
 (add-to-list 'load-path "/path/to/bilk-mode")
 (require 'bilk-mode)
-(require 'bilk-repl)
-(require 'bilk-lsp)
-(require 'bilk-project)
-;; Optional — only if dape is installed
-(require 'bilk-debug)
 ```
 
-### use-package
+### use-package (from local checkout)
 
 ```elisp
 (use-package bilk-mode
   :load-path "/path/to/bilk-mode"
-  :mode ("\\.scm\\'" "\\.sld\\'")
-  :config
-  (require 'bilk-repl)
-  (require 'bilk-lsp)
-  (require 'bilk-project)
-  ;; Optional — only if dape is installed
-  (with-eval-after-load 'dape
-    (require 'bilk-debug)))
+  :mode ("\\.scm\\'" "\\.sld\\'"))
 ```
 
 ## Keybindings

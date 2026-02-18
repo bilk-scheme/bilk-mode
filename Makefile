@@ -1,4 +1,6 @@
 EMACS ?= emacs
+MAKEINFO ?= makeinfo
+INSTALL_INFO ?= install-info
 
 LOAD = -L .
 TEST_FILES = \
@@ -11,6 +13,18 @@ TEST_FILES = \
 
 LOAD_TESTS = $(foreach f,$(TEST_FILES),-l $(f))
 
-.PHONY: test
+.PHONY: test info clean
+
 test: ## Run all tests
 	$(EMACS) -Q -batch $(LOAD) -l ert $(LOAD_TESTS) -f ert-run-tests-batch-and-exit
+
+info: bilk-mode.info dir ## Build info manual
+
+bilk-mode.info: bilk-mode.texi
+	$(MAKEINFO) --no-split $< -o $@
+
+dir: bilk-mode.info
+	$(INSTALL_INFO) --dir-file=dir bilk-mode.info
+
+clean: ## Remove build artifacts
+	rm -f *.elc bilk-mode.info dir

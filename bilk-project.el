@@ -17,15 +17,18 @@
 ;;; Project backend
 ;; ---------------------------------------------------------------------------
 
+;;;###autoload
 (defun bilk-project-try (dir)
   "Return a Bilk project for DIR if `package.scm' is found, or nil."
   (when-let ((root (bilk--find-package-root dir)))
     (cons 'bilk root)))
 
+;;;###autoload
 (cl-defmethod project-root ((project (head bilk)))
   "Return the root directory for a Bilk PROJECT."
   (file-name-as-directory (cdr project)))
 
+;;;###autoload
 (add-hook 'project-find-functions #'bilk-project-try)
 
 ;; ---------------------------------------------------------------------------
@@ -57,6 +60,7 @@
 ;;; Register error regexp with compilation-mode
 ;; ---------------------------------------------------------------------------
 
+;;;###autoload
 (with-eval-after-load 'compile
   (add-to-list 'compilation-error-regexp-alist-alist
                (list 'bilk-error bilk-error-regexp 1 2 3 2))

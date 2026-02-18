@@ -1,5 +1,11 @@
 ;;; bilk-mode.el --- Major mode for Bilk Scheme  -*- lexical-binding: t; -*-
 
+;; Author: bilk-scheme
+;; Version: 0.1.0
+;; Package-Requires: ((emacs "29.1"))
+;; Keywords: languages, scheme
+;; URL: https://github.com/bilk-scheme/bilk-mode
+
 ;;; Commentary:
 
 ;; Derives from `scheme-mode' for R7RS syntax table, indentation, and
@@ -299,35 +305,6 @@ NAME should be in parenthesized form, e.g. \"(scheme base)\"."
     (define-key map (kbd "C-c C-p p") #'bilk-profile)
     map)
   "Keymap for `bilk-mode'.")
-
-;; Placeholder commands — real implementations live in bilk-repl.el
-(defun bilk-eval-last-sexp ()
-  "Evaluate the sexp before point in the Bilk REPL." (interactive)
-  (message "bilk-repl not loaded"))
-
-(defun bilk-eval-defun ()
-  "Evaluate the top-level form at point in the Bilk REPL." (interactive)
-  (message "bilk-repl not loaded"))
-
-(defun bilk-eval-region (start end)
-  "Evaluate the region from START to END in the Bilk REPL." (interactive "r")
-  (message "bilk-repl not loaded"))
-
-(defun bilk-eval-buffer ()
-  "Evaluate the entire buffer in the Bilk REPL." (interactive)
-  (message "bilk-repl not loaded"))
-
-(defun bilk-load-file (file)
-  "Load FILE into the Bilk REPL." (interactive "fLoad file: ")
-  (message "bilk-repl not loaded"))
-
-(defun bilk-switch-to-repl ()
-  "Switch to the Bilk REPL buffer." (interactive)
-  (message "bilk-repl not loaded"))
-
-(defun bilk-interrupt ()
-  "Send interrupt to the Bilk REPL." (interactive)
-  (message "bilk-repl not loaded"))
 
 ;; ---------------------------------------------------------------------------
 ;;; Mode definition

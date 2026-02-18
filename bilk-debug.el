@@ -24,6 +24,7 @@
 ;;; Dape configuration (deferred until dape loads)
 ;; ---------------------------------------------------------------------------
 
+;;;###autoload
 (with-eval-after-load 'dape
   (add-to-list 'dape-configs
                `(bilk-debug

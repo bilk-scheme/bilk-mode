@@ -1,0 +1,533 @@
+\input texinfo   @c -*- texinfo -*-
+@c %**start of header
+@setfilename bilk-mode.info
+@settitle Bilk Mode Manual
+@documentencoding UTF-8
+@c %**end of header
+
+@dircategory Emacs misc features
+@direntry
+* Bilk Mode: (bilk-mode).      Emacs major mode for Bilk Scheme.
+@end direntry
+
+@copying
+This manual is for bilk-mode version 0.1.0.
+
+Copyright @copyright{} 2026 wile-scheme.
+
+@quotation
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the
+``Software''), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+@end quotation
+@end copying
+
+@titlepage
+@title Bilk Mode Manual
+@subtitle Emacs major mode for Bilk Scheme
+@author bilk-scheme
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+@end titlepage
+
+@contents
+
+@ifnottex
+@node Top
+@top Bilk Mode
+
+An Emacs major mode for Bilk Scheme, providing syntax highlighting,
+REPL integration, LSP support, debugging, and project management.
+@end ifnottex
+
+@menu
+* Introduction::        Features overview.
+* Installation::        Requirements and setup.
+* Editing::             Font-lock, indentation, imenu, keybindings.
+* REPL::                Interactive evaluation via @command{bilk serve}.
+* LSP::                 Language server integration via eglot.
+* Debugging::           DAP integration via dape.
+* Project Integration:: @code{project.el} backend and build commands.
+* Library Navigation::  Finding library source files.
+* Customization::       User-configurable options.
+* Module Architecture:: Package structure and dependencies.
+* Key Index::
+* Command Index::
+* Variable Index::
+@end menu
+
+@c ===================================================================
+@node Introduction
+@chapter Introduction
+
+bilk-mode is an Emacs major mode for editing
+@uref{https://bilk-scheme.github.io, Bilk Scheme} source files.  It
+derives from @code{scheme-mode} for R7RS syntax table, indentation, and
+font-lock, then extends with:
+
+@itemize @bullet
+@item
+Three levels of font-lock: keywords, booleans/characters, R7RS builtins.
+@item
+Datum comment (@code{#;}) highlighting.
+@item
+Imenu support for @code{define}, @code{define-syntax},
+@code{define-library}, @code{define-record-type}, and
+@code{define-values}.
+@item
+Interactive REPL via @command{bilk serve} with eval, completion, and
+auto-reload.
+@item
+LSP integration via eglot (built-in since Emacs 29).
+@item
+DAP debugging via dape.
+@item
+@code{project.el} backend recognizing @file{package.scm} project roots.
+@item
+Library navigation with search path resolution.
+@end itemize
+
+@c ===================================================================
+@node Installation
+@chapter Installation
+
+@section Requirements
+
+@itemize @bullet
+@item
+Emacs 29 or later.
+@item
+@command{bilk} compiler on @env{PATH} (or set @code{bilk-program}).
+@item
+@strong{Optional:} @uref{https://github.com/svaante/dape, dape} for DAP
+debugging.
+@end itemize
+
+Eglot ships with Emacs 29+ and is used for LSP --- no extra package
+needed.
+
+@section MELPA
+
+bilk-mode is available from @uref{https://melpa.org/#/bilk-mode, MELPA}.
+After enabling MELPA:
+
+@example
+M-x package-install RET bilk-mode RET
+@end example
+
+Or with @code{use-package}:
+
+@lisp
+(use-package bilk-mode
+  :ensure t
+  :mode ("\\.scm\\'" "\\.sld\\'"))
+@end lisp
+
+@section Manual Installation
+
+Clone the repository and add it to your load path:
+
+@lisp
+(add-to-list 'load-path "/path/to/bilk-mode")
+(require 'bilk-mode)
+@end lisp
+
+@section use-package (local checkout)
+
+@lisp
+(use-package bilk-mode
+  :load-path "/path/to/bilk-mode"
+  :mode ("\\.scm\\'" "\\.sld\\'"))
+@end lisp
+
+@c ===================================================================
+@node Editing
+@chapter Editing
+
+@section Font-Lock
+
+bilk-mode provides three levels of font-lock highlighting:
+
+@table @strong
+@item Level 1
+Bilk keywords (@code{define}, @code{lambda}, @code{if}, @code{cond},
+@code{guard}, @code{import}, @code{define-library}, etc.).
+@item Level 2
+Keywords plus booleans (@code{#t}, @code{#f}, @code{#true},
+@code{#false}) and character literals (@code{#\a}, @code{#\space}).
+@item Level 3
+All of the above plus R7RS builtin procedures (@code{car}, @code{cdr},
+@code{display}, @code{call/cc}, etc.) extracted from the Bilk compiler
+source.
+@end table
+
+Datum comments (@code{#;}) are highlighted as comments, covering the
+@code{#;} token and the following datum.
+
+@section Indentation
+
+bilk-mode inherits @code{scheme-mode} indentation and adds
+@code{scheme-indent-function} properties for Bilk-specific forms:
+
+@table @code
+@item guard
+1 (body at +2, clauses aligned).
+@item case-lambda
+0 (clauses at +2).
+@item define-library
+1 (body at +2).
+@item cond-expand
+0 (clauses at +2).
+@item delay-force
+0 (body at +2).
+@item define-values
+1 (body at +2).
+@end table
+
+@section Imenu
+
+The following forms are indexed by imenu:
+
+@itemize @bullet
+@item
+@code{define} and @code{define-syntax} (top-level definitions).
+@item
+@code{define-library} (under ``Libraries'').
+@item
+@code{define-record-type} (under ``Record Types'').
+@item
+@code{define-values} (under ``Values'').
+@end itemize
+
+@section Keybindings
+
+@kindex C-x C-e
+@kindex C-M-x
+@kindex C-c C-r
+@kindex C-c C-b
+@kindex C-c C-l
+@kindex C-c C-z
+@kindex C-c C-c
+@kindex C-c C-f
+@kindex C-c C-p b
+@kindex C-c C-p t
+@kindex C-c C-p p
+
+@multitable @columnfractions .20 .35 .45
+@headitem Key @tab Command @tab Description
+@item @kbd{C-x C-e}
+@tab @code{bilk-eval-last-sexp}
+@tab Evaluate sexp before point.
+@item @kbd{C-M-x}
+@tab @code{bilk-eval-defun}
+@tab Evaluate top-level form at point.
+@item @kbd{C-c C-r}
+@tab @code{bilk-eval-region}
+@tab Evaluate active region.
+@item @kbd{C-c C-b}
+@tab @code{bilk-eval-buffer}
+@tab Evaluate entire buffer.
+@item @kbd{C-c C-l}
+@tab @code{bilk-load-file}
+@tab Load a file into the REPL.
+@item @kbd{C-c C-z}
+@tab @code{bilk-switch-to-repl}
+@tab Switch to the REPL buffer.
+@item @kbd{C-c C-c}
+@tab @code{bilk-interrupt}
+@tab Interrupt REPL evaluation.
+@item @kbd{C-c C-f}
+@tab @code{bilk-find-library}
+@tab Find and visit a library by name.
+@item @kbd{C-c C-p b}
+@tab @code{bilk-build}
+@tab Build the current project.
+@item @kbd{C-c C-p t}
+@tab @code{bilk-test}
+@tab Run tests for the current project.
+@item @kbd{C-c C-p p}
+@tab @code{bilk-profile}
+@tab Profile a file.
+@end multitable
+
+@c ===================================================================
+@node REPL
+@chapter REPL
+
+The REPL client connects to @command{bilk serve} over TCP, providing
+interactive evaluation, completion, and auto-reload.
+
+@menu
+* Starting the REPL::
+* Eval Commands::
+* Comma Commands::
+* Auto-Reload::
+* Completion::
+* Error Navigation::
+@end menu
+
+@node Starting the REPL
+@section Starting the REPL
+
+@deffn Command bilk-repl-start
+Start @command{bilk serve} and connect to it over TCP (default port
+7890).
+@end deffn
+
+@deffn Command bilk-repl-disconnect
+Disconnect from the Bilk REPL and stop the server.
+@end deffn
+
+@node Eval Commands
+@section Eval Commands
+
+@deffn Command bilk-eval-last-sexp
+@kindex C-x C-e
+Evaluate the sexp before point in the Bilk REPL.
+@end deffn
+
+@deffn Command bilk-eval-defun
+@kindex C-M-x
+Evaluate the top-level form at point in the Bilk REPL.
+@end deffn
+
+@deffn Command bilk-eval-region start end
+@kindex C-c C-r
+Evaluate the region from @var{start} to @var{end} in the Bilk REPL.
+@end deffn
+
+@deffn Command bilk-eval-buffer
+@kindex C-c C-b
+Evaluate the entire buffer in the Bilk REPL.
+@end deffn
+
+@deffn Command bilk-load-file file
+@kindex C-c C-l
+Load @var{file} into the Bilk REPL.
+@end deffn
+
+@deffn Command bilk-switch-to-repl
+@kindex C-c C-z
+Switch to the Bilk REPL buffer.
+@end deffn
+
+@deffn Command bilk-interrupt
+@kindex C-c C-c
+Send interrupt to the Bilk REPL.
+@end deffn
+
+@node Comma Commands
+@section Comma Commands
+
+The REPL supports comma-commands, exposed as interactive Emacs commands:
+
+@deffn Command bilk-checkpoint name
+Send a @code{,checkpoint} command with @var{name} to save a named REPL
+state snapshot.
+@end deffn
+
+@deffn Command bilk-revert name
+Send a @code{,revert} command with @var{name} to restore a named
+snapshot.
+@end deffn
+
+@deffn Command bilk-reload library
+Send a @code{,reload} command for @var{library} to reload an @file{.sld}
+library.  @var{library} should be in parenthesized form, e.g.,
+@code{(scheme base)}.
+@end deffn
+
+@deffn Command bilk-exports library
+Send a @code{,exports} command for @var{library} to list its exports.
+@end deffn
+
+@deffn Command bilk-deps library
+Send a @code{,deps} command for @var{library} to list its dependencies.
+@end deffn
+
+@node Auto-Reload
+@section Auto-Reload
+
+When @code{bilk-auto-reload} is non-nil (the default), saving an
+@file{.sld} file automatically reloads that library in the connected
+REPL.
+
+@node Completion
+@section Completion
+
+With an active REPL connection, @code{completion-at-point} (@kbd{C-M-i}
+or @kbd{TAB} in many configurations) queries the REPL for symbol
+completions.
+
+@node Error Navigation
+@section Error Navigation
+
+The REPL buffer enables @code{compilation-minor-mode} with a regexp
+matching Bilk error locations (@code{file:line:col}), so @kbd{M-g M-n}
+/ @kbd{M-g M-p} jump to error sites.
+
+@c ===================================================================
+@node LSP
+@chapter LSP
+
+When @code{bilk-lsp-enabled} is non-nil (the default), opening a
+@file{.scm} or @file{.sld} file automatically starts eglot with
+@command{bilk lsp} as the language server.  This provides diagnostics,
+completion, hover, and go-to-definition.
+
+Disable auto-start:
+
+@lisp
+(setq bilk-lsp-enabled nil)
+@end lisp
+
+@c ===================================================================
+@node Debugging
+@chapter Debugging
+
+Requires the @uref{https://github.com/svaante/dape, dape} package.
+
+A @code{bilk-debug} configuration is registered with dape automatically
+when @code{dape} loads.
+
+@deffn Command bilk-debug-file
+Start debugging the current file with dape.
+@end deffn
+
+@deffn Command bilk-toggle-breakpoint
+Toggle a breakpoint at point (convenience wrapper for
+@code{dape-breakpoint-toggle}).
+@end deffn
+
+@c ===================================================================
+@node Project Integration
+@chapter Project Integration
+
+bilk-mode registers a @code{project.el} backend that recognizes any
+directory containing a @file{package.scm} file as a project root.  This
+enables standard @code{project-find-file},
+@code{project-switch-project}, etc.
+
+Project commands (under the @kbd{C-c C-p} prefix):
+
+@deffn Command bilk-build
+@kindex C-c C-p b
+Build the current Bilk project (runs @command{bilk build}).
+@end deffn
+
+@deffn Command bilk-test
+@kindex C-c C-p t
+Run tests for the current Bilk project (runs @command{bilk test}).
+@end deffn
+
+@deffn Command bilk-profile file
+@kindex C-c C-p p
+Profile @var{file} in the current Bilk project (runs @command{bilk
+profile}).
+@end deffn
+
+Build output goes to a @code{*compilation*} buffer with error navigation
+support.
+
+@c ===================================================================
+@node Library Navigation
+@chapter Library Navigation
+
+@deffn Command bilk-find-library name
+@kindex C-c C-f
+Find and visit a Bilk Scheme library by @var{name}.  @var{name} should
+be in parenthesized form, e.g., @code{(scheme base)}.
+@end deffn
+
+The search path resolution order:
+
+@enumerate
+@item
+@env{BILK_PATH} environment variable (colon-separated directories).
+@item
+Project root (nearest ancestor containing @file{package.scm}).
+@item
+@file{~/.bilk/lib/} if it exists.
+@item
+Entries in @code{bilk-library-search-paths}.
+@end enumerate
+
+@c ===================================================================
+@node Customization
+@chapter Customization
+
+All options are in the @code{bilk} customization group
+(@kbd{M-x customize-group bilk}).
+
+@defopt bilk-program
+Path to the bilk executable.  Default: @code{"bilk"}.
+@end defopt
+
+@defopt bilk-repl-port
+TCP port for the REPL server.  Default: @code{7890}.
+@end defopt
+
+@defopt bilk-lsp-enabled
+When non-nil, start eglot automatically in @code{bilk-mode} buffers.
+Default: @code{t}.
+@end defopt
+
+@defopt bilk-auto-reload
+When non-nil, auto-reload @file{.sld} libraries in the REPL on save.
+Default: @code{t}.
+@end defopt
+
+@defopt bilk-library-search-paths
+Additional directories to search for @file{.sld} library files.
+Default: @code{nil}.
+@end defopt
+
+@c ===================================================================
+@node Module Architecture
+@chapter Module Architecture
+
+@example
+bilk-custom          (leaf: defgroup + defcustom, no deps)
+    |
+bilk-mode            (major mode, derives from scheme-mode)
+    |
+    +-- bilk-repl     (REPL client: eval, completion, auto-reload)
+    |     |
+    |     +-- bilk-protocol  (binary frame codec, pure functions)
+    |
+    +-- bilk-lsp      (eglot registration + auto-start hook)
+    |
+    +-- bilk-debug    (dape configuration + debug commands)
+    |
+    +-- bilk-project  (project.el backend + build/test/profile)
+@end example
+
+Each module has a single responsibility and depends only on
+@code{bilk-custom} and @code{bilk-mode}.  @code{bilk-protocol} is a
+pure-data module with no side effects.
+
+@c ===================================================================
+@node Key Index
+@appendix Key Index
+
+@printindex ky
+
+@node Command Index
+@appendix Command Index
+
+@printindex fn
+
+@node Variable Index
+@appendix Variable Index
+
+@printindex vr
+
+@bye
