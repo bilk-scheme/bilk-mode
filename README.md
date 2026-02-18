@@ -196,7 +196,7 @@ Each module has a single responsibility and depends only on `bilk-custom` and
 
 ## Running Tests
 
-The test suite uses ERT (Emacs Lisp Regression Testing). Run all 114 tests:
+The test suite uses ERT (Emacs Lisp Regression Testing):
 
 ```sh
 make test
