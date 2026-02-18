@@ -179,7 +179,11 @@
 (define-derived-mode bilk-repl-mode special-mode "Bilk REPL"
   "Major mode for the Bilk Scheme REPL output buffer."
   :group 'bilk
-  (setq-local bilk-repl--receive-buffer ""))
+  (setq-local bilk-repl--receive-buffer "")
+  (setq-local compilation-error-regexp-alist '(bilk-error))
+  (setq-local compilation-error-regexp-alist-alist
+              (list (list 'bilk-error bilk-error-regexp 1 2 3 2)))
+  (compilation-minor-mode 1))
 
 ;; ---------------------------------------------------------------------------
 ;;; Interactive commands — replace placeholders in bilk-mode.el
@@ -249,6 +253,60 @@
                        (while (not done)
                          (accept-process-output bilk-repl--process 0.1)))
                      (or result nil))))))))))
+
+;; ---------------------------------------------------------------------------
+;;; Auto-reload on save
+;; ---------------------------------------------------------------------------
+
+(defun bilk-repl--buffer-library-name ()
+  "Extract the library name from the current buffer if it is an .sld file.
+Returns a string like \"(mylib utils)\" or nil."
+  (when (and buffer-file-name
+             (string-match-p "\\.sld\\'" buffer-file-name))
+    (save-excursion
+      (goto-char (point-min))
+      (when (re-search-forward
+             "(define-library\\s-+(\\([^)]+\\))" nil t)
+        (concat "(" (match-string 1) ")")))))
+
+(defun bilk-repl--maybe-reload-on-save ()
+  "Reload the current .sld library in the REPL after save, if connected."
+  (when (and bilk-auto-reload
+             (not (eq bilk-repl--connection-status 'disconnected)))
+    (when-let ((lib (bilk-repl--buffer-library-name)))
+      (bilk-reload lib))))
+
+;; ---------------------------------------------------------------------------
+;;; Comma-command wrappers
+;; ---------------------------------------------------------------------------
+
+(defun bilk-checkpoint (name)
+  "Send a checkpoint command with NAME to the Bilk REPL."
+  (interactive "sCheckpoint name: ")
+  (bilk-repl--send-client-msg (cons 'eval (concat ",checkpoint " name))))
+
+(defun bilk-revert (name)
+  "Send a revert command with NAME to the Bilk REPL."
+  (interactive "sRevert to checkpoint: ")
+  (bilk-repl--send-client-msg (cons 'eval (concat ",revert " name))))
+
+(defun bilk-reload (library)
+  "Send a reload command for LIBRARY to the Bilk REPL.
+LIBRARY should be in parenthesized form, e.g. \"(scheme base)\"."
+  (interactive "sReload library: ")
+  (bilk-repl--send-client-msg (cons 'eval (concat ",reload " library))))
+
+(defun bilk-exports (library)
+  "Send an exports command for LIBRARY to the Bilk REPL.
+LIBRARY should be in parenthesized form, e.g. \"(scheme base)\"."
+  (interactive "sShow exports for library: ")
+  (bilk-repl--send-client-msg (cons 'eval (concat ",exports " library))))
+
+(defun bilk-deps (library)
+  "Send a deps command for LIBRARY to the Bilk REPL.
+LIBRARY should be in parenthesized form, e.g. \"(scheme base)\"."
+  (interactive "sShow deps for library: ")
+  (bilk-repl--send-client-msg (cons 'eval (concat ",deps " library))))
 
 ;; ---------------------------------------------------------------------------
 ;;; Connection management

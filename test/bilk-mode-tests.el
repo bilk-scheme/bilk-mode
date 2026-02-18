@@ -318,5 +318,65 @@
     (search-backward "42")
     (should-not (eq (bilk-test-face-at (point)) 'font-lock-comment-face))))
 
+;; ---------------------------------------------------------------------------
+;;; Library name parsing
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-mode/parse-library-name-valid ()
+  "bilk--parse-library-name parses a simple two-part name."
+  (should (equal (bilk--parse-library-name "(scheme base)") '("scheme" "base"))))
+
+(ert-deftest bilk-mode/parse-library-name-multi-part ()
+  "bilk--parse-library-name handles multi-part names."
+  (should (equal (bilk--parse-library-name "(foo bar baz)") '("foo" "bar" "baz"))))
+
+(ert-deftest bilk-mode/parse-library-name-invalid ()
+  "bilk--parse-library-name returns nil for invalid input."
+  (should-not (bilk--parse-library-name "not a library")))
+
+;; ---------------------------------------------------------------------------
+;;; Library path resolution
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-mode/library-name-to-path-single ()
+  "bilk--library-name-to-path maps a name to dir/scheme/base.sld."
+  (should (equal (bilk--library-name-to-path "/proj" '("scheme" "base"))
+                 "/proj/scheme/base.sld")))
+
+(ert-deftest bilk-mode/library-name-to-path-nested ()
+  "bilk--library-name-to-path handles deeply nested names."
+  (should (equal (bilk--library-name-to-path "/proj" '("a" "b" "c"))
+                 "/proj/a/b/c.sld")))
+
+;; ---------------------------------------------------------------------------
+;;; Package root discovery
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-mode/find-package-root-with-package-scm ()
+  "bilk--find-package-root finds dir containing package.scm."
+  (let ((dir (make-temp-file "bilk-test" t)))
+    (unwind-protect
+        (progn
+          (write-region "" nil (expand-file-name "package.scm" dir))
+          (let ((sub (expand-file-name "src/lib" dir)))
+            (make-directory sub t)
+            (should (equal (bilk--find-package-root sub) (file-name-as-directory dir)))))
+      (delete-directory dir t))))
+
+(ert-deftest bilk-mode/find-package-root-without-package-scm ()
+  "bilk--find-package-root returns nil when no package.scm exists."
+  (let ((dir (make-temp-file "bilk-test" t)))
+    (unwind-protect
+        (should-not (bilk--find-package-root dir))
+      (delete-directory dir t))))
+
+;; ---------------------------------------------------------------------------
+;;; Keymap: library navigation binding
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-mode/keymap-find-library ()
+  "C-c C-f should be bound to bilk-find-library in `bilk-mode-map'."
+  (should (eq (lookup-key bilk-mode-map (kbd "C-c C-f")) 'bilk-find-library)))
+
 (provide 'bilk-mode-tests)
 ;;; bilk-mode-tests.el ends here

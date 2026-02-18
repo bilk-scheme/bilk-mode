@@ -12,6 +12,15 @@
 (require 'bilk-custom)
 
 ;; ---------------------------------------------------------------------------
+;;; Error regexp
+;; ---------------------------------------------------------------------------
+
+(defconst bilk-error-regexp
+  "^Error: \\([^:]+\\):\\([0-9]+\\):\\([0-9]+\\): "
+  "Regexp matching Bilk error locations.
+Format: Error: file:line:col: message (from loc.ml and main.ml).")
+
+;; ---------------------------------------------------------------------------
 ;;; Keywords
 ;; ---------------------------------------------------------------------------
 
@@ -215,6 +224,63 @@
   "Imenu patterns for Bilk Scheme: libraries, record types, values, defines.")
 
 ;; ---------------------------------------------------------------------------
+;;; Package root discovery
+;; ---------------------------------------------------------------------------
+
+(defun bilk--find-package-root (dir)
+  "Find the nearest ancestor of DIR containing `package.scm'."
+  (locate-dominating-file dir "package.scm"))
+
+;; ---------------------------------------------------------------------------
+;;; Library name parsing and resolution
+;; ---------------------------------------------------------------------------
+
+(defun bilk--parse-library-name (str)
+  "Parse a library name string like \"(scheme base)\" into a list of parts.
+Returns nil if STR is not a valid parenthesized library name."
+  (when (string-match "^(\\([^)]+\\))$" str)
+    (split-string (match-string 1 str))))
+
+(defun bilk--library-name-to-path (dir parts)
+  "Given DIR and name PARTS, return the expected .sld file path.
+Maps (\"scheme\" \"base\") to DIR/scheme/base.sld."
+  (concat (file-name-as-directory dir)
+          (mapconcat #'identity (butlast parts) "/")
+          (when (cdr parts) "/")
+          (car (last parts))
+          ".sld"))
+
+(defun bilk--library-search-dirs ()
+  "Return a list of directories to search for .sld library files."
+  (let ((dirs (copy-sequence bilk-library-search-paths)))
+    (when-let ((root (bilk--find-package-root default-directory)))
+      (push (file-name-as-directory root) dirs))
+    (when-let ((bilk-path (getenv "BILK_PATH")))
+      (dolist (d (parse-colon-path bilk-path))
+        (push d dirs)))
+    (let ((home-lib (expand-file-name "~/.bilk/lib")))
+      (when (file-directory-p home-lib)
+        (push (file-name-as-directory home-lib) dirs)))
+    (nreverse dirs)))
+
+(defun bilk--resolve-library (name-str)
+  "Resolve library NAME-STR to an .sld file path, or nil."
+  (let ((parts (bilk--parse-library-name name-str)))
+    (when parts
+      (cl-loop for dir in (bilk--library-search-dirs)
+               for path = (bilk--library-name-to-path dir parts)
+               when (file-exists-p path) return path))))
+
+(defun bilk-find-library (name)
+  "Find and visit a Bilk Scheme library by NAME.
+NAME should be in parenthesized form, e.g. \"(scheme base)\"."
+  (interactive "sLibrary name: ")
+  (let ((path (bilk--resolve-library name)))
+    (if path
+        (find-file path)
+      (user-error "Library %s not found" name))))
+
+;; ---------------------------------------------------------------------------
 ;;; Keymap
 ;; ---------------------------------------------------------------------------
 
@@ -227,6 +293,10 @@
     (define-key map (kbd "C-c C-l") #'bilk-load-file)
     (define-key map (kbd "C-c C-z") #'bilk-switch-to-repl)
     (define-key map (kbd "C-c C-c") #'bilk-interrupt)
+    (define-key map (kbd "C-c C-f") #'bilk-find-library)
+    (define-key map (kbd "C-c C-p b") #'bilk-build)
+    (define-key map (kbd "C-c C-p t") #'bilk-test)
+    (define-key map (kbd "C-c C-p p") #'bilk-profile)
     map)
   "Keymap for `bilk-mode'.")
 
@@ -284,7 +354,9 @@ builtins, and imenu patterns."
   (font-lock-add-keywords nil
     '((bilk--datum-comment-matcher 0 font-lock-comment-face prepend)))
   ;; Imenu
-  (setq imenu-generic-expression bilk-imenu-generic-expression))
+  (setq imenu-generic-expression bilk-imenu-generic-expression)
+  ;; Auto-reload .sld libraries on save
+  (add-hook 'after-save-hook #'bilk-repl--maybe-reload-on-save nil t))
 
 ;; ---------------------------------------------------------------------------
 ;;; Auto-mode associations

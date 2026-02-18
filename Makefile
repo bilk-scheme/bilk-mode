@@ -6,7 +6,8 @@ TEST_FILES = \
   test/bilk-protocol-tests.el \
   test/bilk-repl-tests.el \
   test/bilk-lsp-tests.el \
-  test/bilk-debug-tests.el
+  test/bilk-debug-tests.el \
+  test/bilk-project-tests.el
 
 LOAD_TESTS = $(foreach f,$(TEST_FILES),-l $(f))
 

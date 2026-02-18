@@ -27,5 +27,15 @@
   :type 'boolean
   :group 'bilk)
 
+(defcustom bilk-library-search-paths nil
+  "Additional directories to search for .sld library files."
+  :type '(repeat directory)
+  :group 'bilk)
+
+(defcustom bilk-auto-reload t
+  "When non-nil, auto-reload .sld libraries in the REPL on save."
+  :type 'boolean
+  :group 'bilk)
+
 (provide 'bilk-custom)
 ;;; bilk-custom.el ends here

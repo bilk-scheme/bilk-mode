@@ -151,5 +151,131 @@
     (should (string-match "busy"
                           (bilk-repl--mode-line-string)))))
 
+;; ---------------------------------------------------------------------------
+;;; Error regexp matching
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-repl/error-regexp-matches-located-error ()
+  "bilk-error-regexp should match a Bilk error with file:line:col."
+  (let ((err "Error: foo.scm:10:5: unbound variable x"))
+    (should (string-match bilk-error-regexp err))))
+
+(ert-deftest bilk-repl/error-regexp-extracts-file-line-col ()
+  "bilk-error-regexp should capture file, line, and column."
+  (let ((err "Error: lib/util.scm:42:13: syntax error"))
+    (string-match bilk-error-regexp err)
+    (should (equal (match-string 1 err) "lib/util.scm"))
+    (should (equal (match-string 2 err) "42"))
+    (should (equal (match-string 3 err) "13"))))
+
+(ert-deftest bilk-repl/error-regexp-rejects-plain-error ()
+  "bilk-error-regexp should not match an error without location."
+  (let ((err "Error: something went wrong"))
+    (should-not (string-match bilk-error-regexp err))))
+
+;; ---------------------------------------------------------------------------
+;;; Auto-reload on save
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-repl/buffer-library-name-from-sld ()
+  "bilk-repl--buffer-library-name extracts library name from .sld buffer."
+  (with-temp-buffer
+    (insert "(define-library (mylib utils)\n  (export foo))\n")
+    (setq buffer-file-name "/tmp/utils.sld")
+    (should (equal (bilk-repl--buffer-library-name) "(mylib utils)"))))
+
+(ert-deftest bilk-repl/buffer-library-name-nil-for-scm ()
+  "bilk-repl--buffer-library-name returns nil for .scm files."
+  (with-temp-buffer
+    (insert "(define (foo) 42)\n")
+    (setq buffer-file-name "/tmp/foo.scm")
+    (should-not (bilk-repl--buffer-library-name))))
+
+(ert-deftest bilk-repl/auto-reload-sends-when-connected ()
+  "bilk-repl--maybe-reload-on-save sends reload when connected."
+  (let ((sent nil)
+        (bilk-repl--connection-status 'ready)
+        (bilk-auto-reload t))
+    (cl-letf (((symbol-function 'bilk-repl--send-client-msg)
+               (lambda (msg) (push msg sent)))
+              ((symbol-function 'bilk-repl--buffer-library-name)
+               (lambda () "(mylib utils)")))
+      (with-temp-buffer
+        (rename-buffer "utils.sld" t)
+        (bilk-repl--maybe-reload-on-save)
+        (should (equal (car sent) '(eval . ",reload (mylib utils)")))))))
+
+(ert-deftest bilk-repl/auto-reload-skipped-when-disconnected ()
+  "bilk-repl--maybe-reload-on-save does nothing when disconnected."
+  (let ((sent nil)
+        (bilk-repl--connection-status 'disconnected)
+        (bilk-auto-reload t))
+    (cl-letf (((symbol-function 'bilk-repl--send-client-msg)
+               (lambda (msg) (push msg sent)))
+              ((symbol-function 'bilk-repl--buffer-library-name)
+               (lambda () "(mylib utils)")))
+      (with-temp-buffer
+        (rename-buffer "utils.sld" t)
+        (bilk-repl--maybe-reload-on-save)
+        (should (null sent))))))
+
+(ert-deftest bilk-repl/auto-reload-skipped-when-disabled ()
+  "bilk-repl--maybe-reload-on-save does nothing when bilk-auto-reload is nil."
+  (let ((sent nil)
+        (bilk-repl--connection-status 'ready)
+        (bilk-auto-reload nil))
+    (cl-letf (((symbol-function 'bilk-repl--send-client-msg)
+               (lambda (msg) (push msg sent)))
+              ((symbol-function 'bilk-repl--buffer-library-name)
+               (lambda () "(mylib utils)")))
+      (with-temp-buffer
+        (rename-buffer "utils.sld" t)
+        (bilk-repl--maybe-reload-on-save)
+        (should (null sent))))))
+
+;; ---------------------------------------------------------------------------
+;;; Comma-command wrappers
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-repl/checkpoint-sends-eval ()
+  "bilk-checkpoint should send eval with ,checkpoint NAME."
+  (let ((sent nil))
+    (cl-letf (((symbol-function 'bilk-repl--send-client-msg)
+               (lambda (msg) (push msg sent))))
+      (bilk-checkpoint "snap1")
+      (should (equal (car sent) '(eval . ",checkpoint snap1"))))))
+
+(ert-deftest bilk-repl/revert-sends-eval ()
+  "bilk-revert should send eval with ,revert NAME."
+  (let ((sent nil))
+    (cl-letf (((symbol-function 'bilk-repl--send-client-msg)
+               (lambda (msg) (push msg sent))))
+      (bilk-revert "snap1")
+      (should (equal (car sent) '(eval . ",revert snap1"))))))
+
+(ert-deftest bilk-repl/reload-sends-eval ()
+  "bilk-reload should send eval with ,reload LIBRARY."
+  (let ((sent nil))
+    (cl-letf (((symbol-function 'bilk-repl--send-client-msg)
+               (lambda (msg) (push msg sent))))
+      (bilk-reload "(scheme base)")
+      (should (equal (car sent) '(eval . ",reload (scheme base)"))))))
+
+(ert-deftest bilk-repl/exports-sends-eval ()
+  "bilk-exports should send eval with ,exports LIBRARY."
+  (let ((sent nil))
+    (cl-letf (((symbol-function 'bilk-repl--send-client-msg)
+               (lambda (msg) (push msg sent))))
+      (bilk-exports "(scheme base)")
+      (should (equal (car sent) '(eval . ",exports (scheme base)"))))))
+
+(ert-deftest bilk-repl/deps-sends-eval ()
+  "bilk-deps should send eval with ,deps LIBRARY."
+  (let ((sent nil))
+    (cl-letf (((symbol-function 'bilk-repl--send-client-msg)
+               (lambda (msg) (push msg sent))))
+      (bilk-deps "(scheme base)")
+      (should (equal (car sent) '(eval . ",deps (scheme base)"))))))
+
 (provide 'bilk-repl-tests)
 ;;; bilk-repl-tests.el ends here
