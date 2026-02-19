@@ -277,5 +277,295 @@
       (bilk-deps "(scheme base)")
       (should (equal (car sent) '(eval . ",deps (scheme base)"))))))
 
+;; ---------------------------------------------------------------------------
+;;; REPL prompt defcustom
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-repl/prompt-default-value ()
+  "bilk-repl-prompt should default to \"bilk> \"."
+  (should (equal bilk-repl-prompt "bilk> ")))
+
+;; ---------------------------------------------------------------------------
+;;; Mode derivation
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-repl/mode-not-special ()
+  "bilk-repl-mode should not derive from special-mode."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    (should-not (derived-mode-p 'special-mode))))
+
+(ert-deftest bilk-repl/compilation-minor-mode-active ()
+  "bilk-repl-mode should have compilation-minor-mode active."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    (should (bound-and-true-p compilation-minor-mode))))
+
+(ert-deftest bilk-repl/ret-bound-to-send-input ()
+  "RET should be bound to bilk-repl-send-input in bilk-repl-mode."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    (should (eq (key-binding (kbd "RET")) 'bilk-repl-send-input))))
+
+;; ---------------------------------------------------------------------------
+;;; Prompt insertion
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-repl/insert-prompt-text ()
+  "After insert-prompt, buffer should contain the prompt string."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    (bilk-repl--insert-prompt bilk-repl-prompt)
+    (should (equal (buffer-string) "bilk> "))))
+
+(ert-deftest bilk-repl/prompt-marker-position ()
+  "prompt-marker should point to the start of the prompt."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    (bilk-repl--insert-prompt bilk-repl-prompt)
+    (should (= (marker-position bilk-repl--prompt-marker) 1))))
+
+(ert-deftest bilk-repl/input-marker-position ()
+  "input-marker should point to the end of the prompt (start of input area)."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    (bilk-repl--insert-prompt bilk-repl-prompt)
+    (should (= (marker-position bilk-repl--input-marker) 7))))
+
+(ert-deftest bilk-repl/prompt-text-is-read-only ()
+  "Prompt text should have the read-only text property."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    (bilk-repl--insert-prompt bilk-repl-prompt)
+    (should (get-text-property 1 'read-only))))
+
+(ert-deftest bilk-repl/text-after-prompt-is-editable ()
+  "Text typed after the prompt should not be read-only."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    (bilk-repl--insert-prompt bilk-repl-prompt)
+    (goto-char (point-max))
+    (let ((inhibit-read-only t))
+      (insert "hello"))
+    (should-not (get-text-property 7 'read-only))))
+
+;; ---------------------------------------------------------------------------
+;;; Input submission
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-repl/send-input-sends-eval ()
+  "In idle state, send-input should send (eval . \"user input\")."
+  (let ((sent nil))
+    (cl-letf (((symbol-function 'bilk-repl--send-client-msg)
+               (lambda (msg) (push msg sent))))
+      (with-temp-buffer
+        (bilk-repl-mode)
+        (bilk-repl--insert-prompt bilk-repl-prompt)
+        (goto-char (point-max))
+        (insert "(+ 1 2)")
+        (bilk-repl-send-input)
+        (should (equal (car sent) '(eval . "(+ 1 2)")))))))
+
+(ert-deftest bilk-repl/send-input-transitions-to-eval-wait ()
+  "After send-input, state should be eval-wait."
+  (cl-letf (((symbol-function 'bilk-repl--send-client-msg) #'ignore))
+    (with-temp-buffer
+      (bilk-repl-mode)
+      (bilk-repl--insert-prompt bilk-repl-prompt)
+      (goto-char (point-max))
+      (insert "(+ 1 2)")
+      (bilk-repl-send-input)
+      (should (eq bilk-repl--repl-state 'eval-wait)))))
+
+(ert-deftest bilk-repl/send-input-commits-read-only-history ()
+  "After send-input, prompt+input should be read-only history."
+  (cl-letf (((symbol-function 'bilk-repl--send-client-msg) #'ignore))
+    (with-temp-buffer
+      (bilk-repl-mode)
+      (bilk-repl--insert-prompt bilk-repl-prompt)
+      (goto-char (point-max))
+      (insert "(+ 1 2)")
+      (bilk-repl-send-input)
+      ;; The committed line "bilk> (+ 1 2)\n" should be read-only
+      (should (get-text-property 1 'read-only))
+      ;; The user input portion should now also be read-only
+      (should (get-text-property 7 'read-only)))))
+
+(ert-deftest bilk-repl/send-input-empty-does-nothing ()
+  "Empty input in idle state should not send any message."
+  (let ((sent nil))
+    (cl-letf (((symbol-function 'bilk-repl--send-client-msg)
+               (lambda (msg) (push msg sent))))
+      (with-temp-buffer
+        (bilk-repl-mode)
+        (bilk-repl--insert-prompt bilk-repl-prompt)
+        (bilk-repl-send-input)
+        (should (null sent))))))
+
+;; ---------------------------------------------------------------------------
+;;; Status dispatch re-prompts
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-repl/status-ready-in-eval-wait-inserts-prompt ()
+  "Receiving (status . ready) in eval-wait should insert a new prompt.
+Dispatch is called from outside the REPL buffer (as in the process filter)."
+  (let ((repl-buf (generate-new-buffer " *test-repl*")))
+    (unwind-protect
+        (progn
+          (with-current-buffer repl-buf
+            (bilk-repl-mode)
+            (setq bilk-repl--repl-state 'eval-wait))
+          (setq bilk-repl--repl-buffer repl-buf)
+          ;; Dispatch from a different buffer, as the process filter would
+          (with-temp-buffer
+            (bilk-repl--dispatch '(status . ready)))
+          (with-current-buffer repl-buf
+            (should (string-match-p "bilk> " (buffer-string)))
+            (should (eq bilk-repl--repl-state 'idle))))
+      (kill-buffer repl-buf))))
+
+(ert-deftest bilk-repl/status-ready-in-idle-no-duplicate ()
+  "Receiving (status . ready) in idle should NOT insert a duplicate prompt."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    (bilk-repl--insert-prompt bilk-repl-prompt)
+    (setq bilk-repl--repl-buffer (current-buffer))
+    (let ((content-before (buffer-string)))
+      (bilk-repl--dispatch '(status . ready))
+      (should (equal (buffer-string) content-before)))))
+
+;; ---------------------------------------------------------------------------
+;;; Prompt-aware output insertion
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-repl/output-inserts-before-prompt-in-idle ()
+  "In idle state, output should appear before the prompt."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    (bilk-repl--insert-prompt bilk-repl-prompt)
+    (setq bilk-repl--repl-buffer (current-buffer))
+    (bilk-repl--insert-output "hello\n")
+    (should (string-match-p "hello\nbilk> " (buffer-string)))))
+
+(ert-deftest bilk-repl/result-inserts-before-prompt-in-idle ()
+  "In idle state, result should appear before the prompt."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    (bilk-repl--insert-prompt bilk-repl-prompt)
+    (setq bilk-repl--repl-buffer (current-buffer))
+    (bilk-repl--insert-result "42")
+    (should (string-match-p "42\nbilk> " (buffer-string)))))
+
+(ert-deftest bilk-repl/output-inserts-at-end-in-eval-wait ()
+  "In eval-wait state, output should appear at point-max."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    (setq bilk-repl--repl-state 'eval-wait)
+    (setq bilk-repl--repl-buffer (current-buffer))
+    (bilk-repl--insert-output "hello\n")
+    (should (equal (buffer-string) "hello\n"))))
+
+(ert-deftest bilk-repl/output-preserves-user-input ()
+  "Output inserted while user is typing should preserve typed input."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    (bilk-repl--insert-prompt bilk-repl-prompt)
+    (setq bilk-repl--repl-buffer (current-buffer))
+    (goto-char (point-max))
+    (insert "(+ 1")
+    (bilk-repl--insert-output "debug info\n")
+    (should (string-match-p "debug info\nbilk> (\\+ 1" (buffer-string)))))
+
+;; ---------------------------------------------------------------------------
+;;; Read-request handling
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-repl/read-request-inserts-server-prompt ()
+  "A read-request should insert the server's prompt text in the buffer."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    (setq bilk-repl--repl-state 'eval-wait)
+    (setq bilk-repl--repl-buffer (current-buffer))
+    (bilk-repl--handle-read-request "Enter: ")
+    (should (string-match-p "Enter: " (buffer-string)))))
+
+(ert-deftest bilk-repl/read-request-transitions-to-read-wait ()
+  "After read-request, state should be read-wait."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    (setq bilk-repl--repl-state 'eval-wait)
+    (setq bilk-repl--repl-buffer (current-buffer))
+    (bilk-repl--handle-read-request "Enter: ")
+    (should (eq bilk-repl--repl-state 'read-wait))))
+
+(ert-deftest bilk-repl/read-wait-send-input-sends-input-msg ()
+  "RET in read-wait should send (input . \"text\\n\")."
+  (let ((sent nil))
+    (cl-letf (((symbol-function 'bilk-repl--send-client-msg)
+               (lambda (msg) (push msg sent))))
+      (with-temp-buffer
+        (bilk-repl-mode)
+        (setq bilk-repl--repl-state 'eval-wait)
+        (setq bilk-repl--repl-buffer (current-buffer))
+        (bilk-repl--handle-read-request "Enter: ")
+        (goto-char (point-max))
+        (insert "42")
+        (bilk-repl-send-input)
+        (should (equal (car sent) '(input . "42\n")))))))
+
+(ert-deftest bilk-repl/read-wait-send-transitions-to-eval-wait ()
+  "After read-wait submit, state should be eval-wait."
+  (cl-letf (((symbol-function 'bilk-repl--send-client-msg) #'ignore))
+    (with-temp-buffer
+      (bilk-repl-mode)
+      (setq bilk-repl--repl-state 'eval-wait)
+      (setq bilk-repl--repl-buffer (current-buffer))
+      (bilk-repl--handle-read-request "Enter: ")
+      (goto-char (point-max))
+      (insert "42")
+      (bilk-repl-send-input)
+      (should (eq bilk-repl--repl-state 'eval-wait)))))
+
+;; ---------------------------------------------------------------------------
+;;; Bug fix: self-insert must work at prompt
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-repl/self-insert-not-suppressed ()
+  "self-insert-command should not be remapped to undefined in bilk-repl-mode."
+  (with-temp-buffer
+    (bilk-repl-mode)
+    ;; If compilation-minor-mode's special-mode-map parent leaks through,
+    ;; self-insert-command is remapped to 'undefined'.
+    (should-not (eq (key-binding [remap self-insert-command]) 'undefined))))
+
+;; ---------------------------------------------------------------------------
+;;; Bug fix: source-buffer eval commits prompt
+;; ---------------------------------------------------------------------------
+
+(ert-deftest bilk-repl/source-eval-commits-prompt ()
+  "Source-buffer eval should commit the current prompt and transition to eval-wait."
+  (let ((sent nil))
+    (cl-letf (((symbol-function 'bilk-repl--send-client-msg)
+               (lambda (msg) (push msg sent))))
+      (with-temp-buffer
+        (bilk-repl-mode)
+        (bilk-repl--insert-prompt bilk-repl-prompt)
+        (setq bilk-repl--repl-buffer (current-buffer))
+        (bilk-repl--submit-eval "(+ 1 2)")
+        (should (equal (car sent) '(eval . "(+ 1 2)")))
+        (should (eq bilk-repl--repl-state 'eval-wait))))))
+
+(ert-deftest bilk-repl/source-eval-output-after-prompt ()
+  "After source eval, output should appear after the committed prompt."
+  (cl-letf (((symbol-function 'bilk-repl--send-client-msg) #'ignore))
+    (with-temp-buffer
+      (bilk-repl-mode)
+      (bilk-repl--insert-prompt bilk-repl-prompt)
+      (setq bilk-repl--repl-buffer (current-buffer))
+      (bilk-repl--submit-eval "(+ 1 2)")
+      ;; Now in eval-wait; output goes at point-max
+      (bilk-repl--insert-output "hello\n")
+      (should (string-match-p "bilk> \nhello\n" (buffer-string))))))
+
 (provide 'bilk-repl-tests)
 ;;; bilk-repl-tests.el ends here

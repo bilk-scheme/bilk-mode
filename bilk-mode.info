@@ -8,10 +8,11 @@ This manual is for bilk-mode version 0.1.0.
      Permission is hereby granted, free of charge, to any person
      obtaining a copy of this software and associated documentation
      files (the “Software”), to deal in the Software without
-     restriction, including without limitation the rights to use, copy,
-     modify, merge, publish, distribute, sublicense, and/or sell copies
-     of the Software, and to permit persons to whom the Software is
-     furnished to do so, subject to the following conditions:
+     restriction, including without limitation the rights to use,
+     copy, modify, merge, publish, distribute, sublicense, and/or sell
+     copies of the Software, and to permit persons to whom the
+     Software is furnished to do so, subject to the following
+     conditions:
 
      The above copyright notice and this permission notice shall be
      included in all copies or substantial portions of the Software.
@@ -26,8 +27,8 @@ File: bilk-mode.info,  Node: Top,  Next: Introduction,  Up: (dir)
 Bilk Mode
 *********
 
-An Emacs major mode for Bilk Scheme, providing syntax highlighting, REPL
-integration, LSP support, debugging, and project management.
+An Emacs major mode for Bilk Scheme, providing syntax highlighting,
+REPL integration, LSP support, debugging, and project management.
 
 * Menu:
 
@@ -126,8 +127,8 @@ File: bilk-mode.info,  Node: Editing,  Next: REPL,  Prev: Installation,  Up: Top
 bilk-mode provides three levels of font-lock highlighting:
 
 *Level 1*
-     Bilk keywords (‘define’, ‘lambda’, ‘if’, ‘cond’, ‘guard’, ‘import’,
-     ‘define-library’, etc.).
+     Bilk keywords (‘define’, ‘lambda’, ‘if’, ‘cond’, ‘guard’,
+     ‘import’, ‘define-library’, etc.).
 *Level 2*
      Keywords plus booleans (‘#t’, ‘#f’, ‘#true’, ‘#false’) and
      character literals (‘#\a’, ‘#\space’).
@@ -136,8 +137,8 @@ bilk-mode provides three levels of font-lock highlighting:
      ‘display’, ‘call/cc’, etc.)  extracted from the Bilk compiler
      source.
 
-   Datum comments (‘#;’) are highlighted as comments, covering the ‘#;’
-token and the following datum.
+   Datum comments (‘#;’) are highlighted as comments, covering the
+‘#;’ token and the following datum.
 
 3.2 Indentation
 ===============
@@ -194,8 +195,8 @@ File: bilk-mode.info,  Node: REPL,  Next: LSP,  Prev: Editing,  Up: Top
 4 REPL
 ******
 
-The REPL client connects to ‘bilk serve’ over TCP, providing interactive
-evaluation, completion, and auto-reload.
+The REPL client connects to ‘bilk serve’ over TCP, providing
+interactive evaluation, completion, and auto-reload.
 
 * Menu:
 
@@ -213,7 +214,8 @@ File: bilk-mode.info,  Node: Starting the REPL,  Next: Eval Commands,  Up: REPL
 =====================
 
  -- Command: bilk-repl-start
-     Start ‘bilk serve’ and connect to it over TCP (default port 7890).
+     Start ‘bilk serve’ and connect to it over TCP (default port
+     7890).
 
  -- Command: bilk-repl-disconnect
      Disconnect from the Bilk REPL and stop the server.
@@ -251,7 +253,8 @@ File: bilk-mode.info,  Node: Comma Commands,  Next: Auto-Reload,  Prev: Eval Com
 4.3 Comma Commands
 ==================
 
-The REPL supports comma-commands, exposed as interactive Emacs commands:
+The REPL supports comma-commands, exposed as interactive Emacs
+commands:
 
  -- Command: bilk-checkpoint name
      Send a ‘,checkpoint’ command with NAME to save a named REPL state
@@ -276,8 +279,8 @@ File: bilk-mode.info,  Node: Auto-Reload,  Next: Completion,  Prev: Comma Comman
 4.4 Auto-Reload
 ===============
 
-When ‘bilk-auto-reload’ is non-nil (the default), saving an ‘.sld’ file
-automatically reloads that library in the connected REPL.
+When ‘bilk-auto-reload’ is non-nil (the default), saving an ‘.sld’
+file automatically reloads that library in the connected REPL.
 
 
 File: bilk-mode.info,  Node: Completion,  Next: Error Navigation,  Prev: Auto-Reload,  Up: REPL
@@ -285,8 +288,8 @@ File: bilk-mode.info,  Node: Completion,  Next: Error Navigation,  Prev: Auto-Re
 4.5 Completion
 ==============
 
-With an active REPL connection, ‘completion-at-point’ (‘C-M-i’ or ‘TAB’
-in many configurations) queries the REPL for symbol completions.
+With an active REPL connection, ‘completion-at-point’ (‘C-M-i’ or
+‘TAB’ in many configurations) queries the REPL for symbol completions.
 
 
 File: bilk-mode.info,  Node: Error Navigation,  Prev: Completion,  Up: REPL
@@ -294,9 +297,9 @@ File: bilk-mode.info,  Node: Error Navigation,  Prev: Completion,  Up: REPL
 4.6 Error Navigation
 ====================
 
-The REPL buffer enables ‘compilation-minor-mode’ with a regexp matching
-Bilk error locations (‘file:line:col’), so ‘M-g M-n’ / ‘M-g M-p’ jump to
-error sites.
+The REPL buffer enables ‘compilation-minor-mode’ with a regexp
+matching Bilk error locations (‘file:line:col’), so ‘M-g M-n’ / ‘M-g
+M-p’ jump to error sites.
 
 
 File: bilk-mode.info,  Node: LSP,  Next: Debugging,  Prev: REPL,  Up: Top
@@ -337,9 +340,9 @@ File: bilk-mode.info,  Node: Project Integration,  Next: Library Navigation,  Pr
 7 Project Integration
 *********************
 
-bilk-mode registers a ‘project.el’ backend that recognizes any directory
-containing a ‘package.scm’ file as a project root.  This enables
-standard ‘project-find-file’, ‘project-switch-project’, etc.
+bilk-mode registers a ‘project.el’ backend that recognizes any
+directory containing a ‘package.scm’ file as a project root.  This
+enables standard ‘project-find-file’, ‘project-switch-project’, etc.
 
    Project commands (under the ‘C-c C-p’ prefix):
 
@@ -378,8 +381,8 @@ File: bilk-mode.info,  Node: Customization,  Next: Module Architecture,  Prev: L
 9 Customization
 ***************
 
-All options are in the ‘bilk’ customization group (‘M-x customize-group
-bilk’).
+All options are in the ‘bilk’ customization group (‘M-x
+customize-group bilk’).
 
  -- User Option: bilk-program
      Path to the bilk executable.  Default: ‘"bilk"’.
@@ -432,28 +435,31 @@ Appendix A Key Index
  [index ]
 * Menu:
 
-* C-c C-b:                               Editing.              (line 57)
-* C-c C-b <1>:                           Eval Commands.        (line 16)
-* C-c C-c:                               Editing.              (line 57)
-* C-c C-c <1>:                           Eval Commands.        (line 25)
-* C-c C-f:                               Editing.              (line 57)
-* C-c C-f <1>:                           Library Navigation.   (line  7)
-* C-c C-l:                               Editing.              (line 57)
-* C-c C-l <1>:                           Eval Commands.        (line 19)
-* C-c C-p b:                             Editing.              (line 57)
-* C-c C-p b <1>:                         Project Integration.  (line 13)
-* C-c C-p p:                             Editing.              (line 57)
-* C-c C-p p <1>:                         Project Integration.  (line 19)
-* C-c C-p t:                             Editing.              (line 57)
-* C-c C-p t <1>:                         Project Integration.  (line 16)
-* C-c C-r:                               Editing.              (line 57)
-* C-c C-r <1>:                           Eval Commands.        (line 13)
-* C-c C-z:                               Editing.              (line 57)
-* C-c C-z <1>:                           Eval Commands.        (line 22)
-* C-M-x:                                 Editing.              (line 57)
-* C-M-x <1>:                             Eval Commands.        (line 10)
-* C-x C-e:                               Editing.              (line 57)
-* C-x C-e <1>:                           Eval Commands.        (line  7)
+* C-c C-b:                               Editing.            (line 57)
+* C-c C-b <1>:                           Eval Commands.      (line 16)
+* C-c C-c:                               Editing.            (line 57)
+* C-c C-c <1>:                           Eval Commands.      (line 25)
+* C-c C-f:                               Editing.            (line 57)
+* C-c C-f <1>:                           Library Navigation. (line  7)
+* C-c C-l:                               Editing.            (line 57)
+* C-c C-l <1>:                           Eval Commands.      (line 19)
+* C-c C-p b:                             Editing.            (line 57)
+* C-c C-p b <1>:                         Project Integration.
+                                                             (line 13)
+* C-c C-p p:                             Editing.            (line 57)
+* C-c C-p p <1>:                         Project Integration.
+                                                             (line 19)
+* C-c C-p t:                             Editing.            (line 57)
+* C-c C-p t <1>:                         Project Integration.
+                                                             (line 16)
+* C-c C-r:                               Editing.            (line 57)
+* C-c C-r <1>:                           Eval Commands.      (line 13)
+* C-c C-z:                               Editing.            (line 57)
+* C-c C-z <1>:                           Eval Commands.      (line 22)
+* C-M-x:                                 Editing.            (line 57)
+* C-M-x <1>:                             Eval Commands.      (line 10)
+* C-x C-e:                               Editing.            (line 57)
+* C-x C-e <1>:                           Eval Commands.      (line  7)
 
 
 File: bilk-mode.info,  Node: Command Index,  Next: Variable Index,  Prev: Key Index,  Up: Top
@@ -464,26 +470,29 @@ Appendix B Command Index
  [index ]
 * Menu:
 
-* bilk-build:                            Project Integration.  (line 12)
-* bilk-checkpoint:                       Comma Commands.       (line  8)
-* bilk-debug-file:                       Debugging.            (line 11)
-* bilk-deps:                             Comma Commands.       (line 22)
-* bilk-eval-buffer:                      Eval Commands.        (line 15)
-* bilk-eval-defun:                       Eval Commands.        (line  9)
-* bilk-eval-last-sexp:                   Eval Commands.        (line  6)
-* bilk-eval-region:                      Eval Commands.        (line 12)
-* bilk-exports:                          Comma Commands.       (line 19)
-* bilk-find-library:                     Library Navigation.   (line  6)
-* bilk-interrupt:                        Eval Commands.        (line 24)
-* bilk-load-file:                        Eval Commands.        (line 18)
-* bilk-profile:                          Project Integration.  (line 18)
-* bilk-reload:                           Comma Commands.       (line 15)
-* bilk-repl-disconnect:                  Starting the REPL.    (line  9)
-* bilk-repl-start:                       Starting the REPL.    (line  6)
-* bilk-revert:                           Comma Commands.       (line 12)
-* bilk-switch-to-repl:                   Eval Commands.        (line 21)
-* bilk-test:                             Project Integration.  (line 15)
-* bilk-toggle-breakpoint:                Debugging.            (line 14)
+* bilk-build:                            Project Integration.
+                                                             (line 12)
+* bilk-checkpoint:                       Comma Commands.     (line  9)
+* bilk-debug-file:                       Debugging.          (line 11)
+* bilk-deps:                             Comma Commands.     (line 23)
+* bilk-eval-buffer:                      Eval Commands.      (line 15)
+* bilk-eval-defun:                       Eval Commands.      (line  9)
+* bilk-eval-last-sexp:                   Eval Commands.      (line  6)
+* bilk-eval-region:                      Eval Commands.      (line 12)
+* bilk-exports:                          Comma Commands.     (line 20)
+* bilk-find-library:                     Library Navigation. (line  6)
+* bilk-interrupt:                        Eval Commands.      (line 24)
+* bilk-load-file:                        Eval Commands.      (line 18)
+* bilk-profile:                          Project Integration.
+                                                             (line 18)
+* bilk-reload:                           Comma Commands.     (line 16)
+* bilk-repl-disconnect:                  Starting the REPL.  (line 10)
+* bilk-repl-start:                       Starting the REPL.  (line  6)
+* bilk-revert:                           Comma Commands.     (line 13)
+* bilk-switch-to-repl:                   Eval Commands.      (line 21)
+* bilk-test:                             Project Integration.
+                                                             (line 15)
+* bilk-toggle-breakpoint:                Debugging.          (line 14)
 
 
 File: bilk-mode.info,  Node: Variable Index,  Prev: Command Index,  Up: Top
@@ -494,35 +503,35 @@ Appendix C Variable Index
  [index ]
 * Menu:
 
-* bilk-auto-reload:                      Customization.        (line 19)
-* bilk-library-search-paths:             Customization.        (line 23)
-* bilk-lsp-enabled:                      Customization.        (line 15)
-* bilk-program:                          Customization.        (line  9)
-* bilk-repl-port:                        Customization.        (line 12)
+* bilk-auto-reload:                      Customization.      (line 19)
+* bilk-library-search-paths:             Customization.      (line 23)
+* bilk-lsp-enabled:                      Customization.      (line 15)
+* bilk-program:                          Customization.      (line  9)
+* bilk-repl-port:                        Customization.      (line 12)
 
 
 
 Tag Table:
-Node: Top912
-Node: Introduction1773
-Node: Installation2684
-Node: Editing3727
-Node: REPL6326
-Node: Starting the REPL6656
-Node: Eval Commands6981
-Node: Comma Commands7692
-Node: Auto-Reload8525
-Node: Completion8794
-Node: Error Navigation9074
-Node: LSP9371
-Node: Debugging9754
-Node: Project Integration10242
-Node: Library Navigation11033
-Node: Customization11612
-Node: Module Architecture12423
-Node: Key Index13285
-Node: Command Index15058
-Node: Variable Index16688
+Node: Top917
+Node: Introduction1778
+Node: Installation2689
+Node: Editing3732
+Node: REPL6331
+Node: Starting the REPL6661
+Node: Eval Commands6991
+Node: Comma Commands7702
+Node: Auto-Reload8535
+Node: Completion8804
+Node: Error Navigation9084
+Node: LSP9381
+Node: Debugging9764
+Node: Project Integration10252
+Node: Library Navigation11043
+Node: Customization11622
+Node: Module Architecture12433
+Node: Key Index13295
+Node: Command Index15210
+Node: Variable Index16986
 
 End Tag Table
 

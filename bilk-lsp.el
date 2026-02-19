@@ -8,7 +8,6 @@
 ;;; Code:
 
 (require 'bilk-custom)
-(require 'bilk-mode)
 
 ;;;###autoload
 (defun bilk-lsp--maybe-enable ()

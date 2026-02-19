@@ -37,5 +37,10 @@
   :type 'boolean
   :group 'bilk)
 
+(defcustom bilk-repl-prompt "bilk> "
+  "Prompt string displayed in the REPL buffer."
+  :type 'string
+  :group 'bilk)
+
 (provide 'bilk-custom)
 ;;; bilk-custom.el ends here

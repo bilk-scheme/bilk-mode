@@ -344,5 +344,11 @@ builtins, and imenu patterns."
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.sld\\'" . bilk-mode))
 
+;; ---------------------------------------------------------------------------
+;;; Optional integrations
+;; ---------------------------------------------------------------------------
+
+(require 'bilk-lsp)
+
 (provide 'bilk-mode)
 ;;; bilk-mode.el ends here

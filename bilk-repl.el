@@ -38,6 +38,15 @@
 (defvar bilk-repl--pending-completions nil
   "Callback for in-flight completion request, or nil.")
 
+(defvar-local bilk-repl--prompt-marker nil
+  "Marker at the start of the current prompt.")
+
+(defvar-local bilk-repl--input-marker nil
+  "Marker at the end of the current prompt (start of user input).")
+
+(defvar-local bilk-repl--repl-state 'idle
+  "REPL interaction state: `idle', `eval-wait', or `read-wait'.")
+
 ;; ---------------------------------------------------------------------------
 ;;; Mode-line
 ;; ---------------------------------------------------------------------------
@@ -122,6 +131,10 @@
      (bilk-repl--handle-read-request _prompt))
     (`(status . ,st)
      (setq bilk-repl--connection-status st)
+     (when (eq st 'ready)
+       (with-current-buffer (bilk-repl--ensure-buffer)
+         (when (eq bilk-repl--repl-state 'eval-wait)
+           (bilk-repl--insert-prompt bilk-repl-prompt))))
      (force-mode-line-update t))
     (`(session-ok)
      (setq bilk-repl--connection-status 'ready)
@@ -144,46 +157,151 @@
                 (bilk-repl-mode))
               buf))))
 
+(defun bilk-repl--insert-before-prompt (text)
+  "Insert TEXT into the REPL buffer before the prompt, or at point-max.
+When a prompt is active (idle or read-wait), inserts at the prompt-marker
+position so the prompt stays at the bottom.  When no prompt (eval-wait),
+inserts at point-max.  Inserted text is marked read-only."
+  (let ((inhibit-read-only t))
+    (if (and (memq bilk-repl--repl-state '(idle read-wait))
+             bilk-repl--prompt-marker
+             (marker-position bilk-repl--prompt-marker))
+        (save-excursion
+          (goto-char bilk-repl--prompt-marker)
+          (insert (propertize text 'read-only t)))
+      (goto-char (point-max))
+      (insert (propertize text 'read-only t)))))
+
 (defun bilk-repl--insert-output (text)
   "Insert server output TEXT into the REPL buffer."
   (with-current-buffer (bilk-repl--ensure-buffer)
-    (let ((inhibit-read-only t))
-      (goto-char (point-max))
-      (insert text))))
+    (bilk-repl--insert-before-prompt text)))
 
 (defun bilk-repl--insert-result (text)
   "Insert evaluation result TEXT into the REPL buffer and echo area."
   (with-current-buffer (bilk-repl--ensure-buffer)
-    (let ((inhibit-read-only t))
-      (goto-char (point-max))
-      (insert (propertize text 'face 'font-lock-type-face) "\n")))
+    (bilk-repl--insert-before-prompt
+     (concat (propertize text 'face 'font-lock-type-face) "\n")))
   (message "%s" text))
 
 (defun bilk-repl--insert-error (text)
   "Insert error TEXT into the REPL buffer."
   (with-current-buffer (bilk-repl--ensure-buffer)
-    (let ((inhibit-read-only t))
-      (goto-char (point-max))
-      (insert (propertize text 'face 'font-lock-warning-face) "\n")))
+    (bilk-repl--insert-before-prompt
+     (concat (propertize text 'face 'font-lock-warning-face) "\n")))
   (message "Error: %s" text))
 
 (defun bilk-repl--handle-read-request (prompt)
-  "Handle a read-request from the server with PROMPT."
-  (let ((input (read-string prompt)))
-    (bilk-repl--send-client-msg (cons 'input (concat input "\n")))))
+  "Handle a read-request from the server with PROMPT.
+Inserts the server's prompt in the REPL buffer for in-buffer input."
+  (with-current-buffer (bilk-repl--ensure-buffer)
+    (bilk-repl--insert-prompt prompt)
+    (setq bilk-repl--repl-state 'read-wait)))
 
 ;; ---------------------------------------------------------------------------
 ;;; REPL mode (for the output buffer)
 ;; ---------------------------------------------------------------------------
 
-(define-derived-mode bilk-repl-mode special-mode "Bilk REPL"
-  "Major mode for the Bilk Scheme REPL output buffer."
+(defvar bilk-repl-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'bilk-repl-send-input)
+    map)
+  "Keymap for `bilk-repl-mode'.")
+
+(define-derived-mode bilk-repl-mode nil "Bilk REPL"
+  "Major mode for the Bilk Scheme REPL buffer."
   :group 'bilk
   (setq-local bilk-repl--receive-buffer "")
   (setq-local compilation-error-regexp-alist '(bilk-error))
   (setq-local compilation-error-regexp-alist-alist
               (list (list 'bilk-error bilk-error-regexp 1 2 3 2)))
-  (compilation-minor-mode 1))
+  (compilation-minor-mode 1)
+  (bilk-repl--init-markers)
+  ;; Override compilation-minor-mode's keymap.  The default map inherits
+  ;; from special-mode-map which suppresses self-insert-command.  We
+  ;; replace it with a fresh map that keeps error navigation but allows
+  ;; normal typing.
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'bilk-repl-send-input)
+    (define-key map (kbd "M-n") #'compilation-next-error)
+    (define-key map (kbd "M-p") #'compilation-previous-error)
+    (push (cons 'compilation-minor-mode map)
+          minor-mode-overriding-map-alist)))
+
+(defface bilk-repl-prompt-face
+  '((t :inherit font-lock-keyword-face))
+  "Face for the REPL prompt."
+  :group 'bilk)
+
+(defun bilk-repl--init-markers ()
+  "Initialize prompt and input markers for the current buffer."
+  (setq bilk-repl--prompt-marker (make-marker))
+  (setq bilk-repl--input-marker (make-marker))
+  (set-marker-insertion-type bilk-repl--prompt-marker t)
+  ;; input-marker stays put when user types at its position
+  (set-marker-insertion-type bilk-repl--input-marker nil))
+
+(defun bilk-repl--insert-prompt (prompt)
+  "Insert PROMPT into the REPL buffer and set up markers."
+  (let ((inhibit-read-only t)
+        (start (point-max)))
+    (goto-char start)
+    (insert (propertize prompt
+                        'face 'bilk-repl-prompt-face
+                        'read-only t
+                        'field 'prompt
+                        'rear-nonsticky t))
+    (set-marker bilk-repl--prompt-marker start)
+    (set-marker bilk-repl--input-marker (point))
+    (setq bilk-repl--repl-state 'idle)))
+
+(defun bilk-repl-send-input ()
+  "Submit user input at the REPL prompt."
+  (interactive)
+  (when (and bilk-repl--input-marker
+             (marker-position bilk-repl--input-marker))
+    (let ((input (buffer-substring-no-properties
+                  bilk-repl--input-marker (point-max))))
+      (unless (string-empty-p input)
+        (let ((inhibit-read-only t))
+          ;; Commit prompt+input as read-only history with newline
+          (goto-char (point-max))
+          (insert "\n")
+          (add-text-properties (marker-position bilk-repl--prompt-marker)
+                               (point-max)
+                               '(read-only t)))
+        ;; Send message based on state
+        (pcase bilk-repl--repl-state
+          ('idle
+           (bilk-repl--send-client-msg (cons 'eval input))
+           (setq bilk-repl--repl-state 'eval-wait))
+          ('read-wait
+           (bilk-repl--send-client-msg (cons 'input (concat input "\n")))
+           (setq bilk-repl--repl-state 'eval-wait)))))))
+
+;; ---------------------------------------------------------------------------
+;;; Source-buffer eval helper
+;; ---------------------------------------------------------------------------
+
+(defun bilk-repl--commit-prompt ()
+  "Commit the current prompt as read-only history and transition to eval-wait.
+Does nothing if the REPL buffer is not in idle state."
+  (when (and (buffer-live-p bilk-repl--repl-buffer)
+             (with-current-buffer bilk-repl--repl-buffer
+               (eq bilk-repl--repl-state 'idle)))
+    (with-current-buffer bilk-repl--repl-buffer
+      (let ((inhibit-read-only t))
+        (goto-char (point-max))
+        (insert "\n")
+        (add-text-properties (marker-position bilk-repl--prompt-marker)
+                             (point-max)
+                             '(read-only t)))
+      (setq bilk-repl--repl-state 'eval-wait))))
+
+(defun bilk-repl--submit-eval (text)
+  "Submit TEXT for evaluation, committing the REPL prompt first."
+  (bilk-repl--commit-prompt)
+  (bilk-repl--send-client-msg (cons 'eval text)))
 
 ;; ---------------------------------------------------------------------------
 ;;; Interactive commands
@@ -193,34 +311,32 @@
 (defun bilk-eval-last-sexp ()
   "Evaluate the sexp before point in the Bilk REPL."
   (interactive)
-  (bilk-repl--send-client-msg (cons 'eval (bilk-repl--last-sexp))))
+  (bilk-repl--submit-eval (bilk-repl--last-sexp)))
 
 ;;;###autoload
 (defun bilk-eval-defun ()
   "Evaluate the top-level form at point in the Bilk REPL."
   (interactive)
-  (bilk-repl--send-client-msg (cons 'eval (bilk-repl--defun-at-point))))
+  (bilk-repl--submit-eval (bilk-repl--defun-at-point)))
 
 ;;;###autoload
 (defun bilk-eval-region (start end)
   "Evaluate the region from START to END in the Bilk REPL."
   (interactive "r")
-  (bilk-repl--send-client-msg
-   (cons 'eval (buffer-substring-no-properties start end))))
+  (bilk-repl--submit-eval (buffer-substring-no-properties start end)))
 
 ;;;###autoload
 (defun bilk-eval-buffer ()
   "Evaluate the entire buffer in the Bilk REPL."
   (interactive)
-  (bilk-repl--send-client-msg
-   (cons 'eval (buffer-substring-no-properties (point-min) (point-max)))))
+  (bilk-repl--submit-eval
+   (buffer-substring-no-properties (point-min) (point-max))))
 
 ;;;###autoload
 (defun bilk-load-file (file)
   "Load FILE into the Bilk REPL."
   (interactive "fLoad file: ")
-  (bilk-repl--send-client-msg
-   (cons 'eval (format "(load \"%s\")" (expand-file-name file)))))
+  (bilk-repl--submit-eval (format "(load \"%s\")" (expand-file-name file))))
 
 ;;;###autoload
 (defun bilk-switch-to-repl ()
@@ -291,34 +407,34 @@ Returns a string like \"(mylib utils)\" or nil."
 (defun bilk-checkpoint (name)
   "Send a checkpoint command with NAME to the Bilk REPL."
   (interactive "sCheckpoint name: ")
-  (bilk-repl--send-client-msg (cons 'eval (concat ",checkpoint " name))))
+  (bilk-repl--submit-eval (concat ",checkpoint " name)))
 
 ;;;###autoload
 (defun bilk-revert (name)
   "Send a revert command with NAME to the Bilk REPL."
   (interactive "sRevert to checkpoint: ")
-  (bilk-repl--send-client-msg (cons 'eval (concat ",revert " name))))
+  (bilk-repl--submit-eval (concat ",revert " name)))
 
 ;;;###autoload
 (defun bilk-reload (library)
   "Send a reload command for LIBRARY to the Bilk REPL.
 LIBRARY should be in parenthesized form, e.g. \"(scheme base)\"."
   (interactive "sReload library: ")
-  (bilk-repl--send-client-msg (cons 'eval (concat ",reload " library))))
+  (bilk-repl--submit-eval (concat ",reload " library)))
 
 ;;;###autoload
 (defun bilk-exports (library)
   "Send an exports command for LIBRARY to the Bilk REPL.
 LIBRARY should be in parenthesized form, e.g. \"(scheme base)\"."
   (interactive "sShow exports for library: ")
-  (bilk-repl--send-client-msg (cons 'eval (concat ",exports " library))))
+  (bilk-repl--submit-eval (concat ",exports " library)))
 
 ;;;###autoload
 (defun bilk-deps (library)
   "Send a deps command for LIBRARY to the Bilk REPL.
 LIBRARY should be in parenthesized form, e.g. \"(scheme base)\"."
   (interactive "sShow deps for library: ")
-  (bilk-repl--send-client-msg (cons 'eval (concat ",deps " library))))
+  (bilk-repl--submit-eval (concat ",deps " library)))
 
 ;; ---------------------------------------------------------------------------
 ;;; Connection management
@@ -368,6 +484,11 @@ LIBRARY should be in parenthesized form, e.g. \"(scheme base)\"."
           (add-hook 'completion-at-point-functions
                     #'bilk-completion-at-point nil t))))
     (force-mode-line-update t)
+    ;; Insert first prompt and display the REPL buffer
+    (let ((buf (bilk-repl--ensure-buffer)))
+      (with-current-buffer buf
+        (bilk-repl--insert-prompt bilk-repl-prompt))
+      (display-buffer buf))
     (message "Connected to Bilk REPL on %s:%d" host port)))
 
 (defun bilk-repl--sentinel (_proc event)
